@@ -1,4 +1,6 @@
+
 from fastapi import APIRouter, HTTPException
+
 from app.schemas.data_availability import DataAvailabilityResponse
 from app.agents.popu_agent import run_popu_agent
 from app.schemas.agent import AgentIntent
@@ -28,6 +30,12 @@ def investigate_with_agent(
         forecast_horizon_days=payload.forecast_horizon_days,
     )
 
+    if isinstance(result, DataAvailabilityResponse):
+        raise HTTPException(
+            status_code=404,
+            detail=result.message,
+        )
+
     if isinstance(result, AgentIntent):
         if (
             result.intent == "INVESTIGATE"
@@ -56,6 +64,12 @@ def generate_agent_investigation_report(
         request=payload.request,
         forecast_horizon_days=payload.forecast_horizon_days,
     )
+
+    if isinstance(result, DataAvailabilityResponse):
+        raise HTTPException(
+            status_code=404,
+            detail=result.message,
+        )
 
     if isinstance(result, AgentIntent):
         if (

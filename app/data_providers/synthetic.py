@@ -1,4 +1,8 @@
-from app.data.synthetic_scenarios import SYNTHETIC_SCENARIOS
+
+from app.data.synthetic_scenarios import (
+    SUPPORTED_GEOGRAPHIES,
+    SYNTHETIC_SCENARIOS,
+)
 from app.data_providers.base import (
     EpidemiologyDataProvider,
     ScenarioLookupResult,
@@ -25,12 +29,31 @@ class SyntheticDataProvider(EpidemiologyDataProvider):
                 status="DATA_UNAVAILABLE",
                 provider=self.name,
                 mode=self.mode,
-                disease=disease,
-                geography=geography,
+                disease=normalized_disease,
+                geography=normalized_geography,
                 scenario=None,
                 message=(
                     f"No synthetic scenario is configured for disease "
-                    f"'{disease}'."
+                    f"'{normalized_disease}'."
+                ),
+            )
+
+        supported_geographies = {
+            item.strip().casefold()
+            for item in SUPPORTED_GEOGRAPHIES
+        }
+
+        if normalized_geography.casefold() not in supported_geographies:
+            return ScenarioLookupResult(
+                status="INVALID_GEOGRAPHY",
+                provider=self.name,
+                mode=self.mode,
+                disease=normalized_disease,
+                geography=normalized_geography,
+                scenario=None,
+                message=(
+                    f"'{normalized_geography}' is not a supported "
+                    f"geography for the current synthetic demo."
                 ),
             )
 

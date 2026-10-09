@@ -1,3 +1,4 @@
+
 from multiprocessing import get_context
 from queue import Empty
 
@@ -6,6 +7,9 @@ from app.services.llm.gemini_provider import GeminiProvider
 from app.services.llm.natlas_provider import NatlasProvider
 from app.services.llm.openai_provider import OpenAIProvider
 from app.services.llm.provider import LLMResult
+
+
+PROVIDER_TIMEOUT_SECONDS = 30
 
 
 def _run_provider(provider_name: str, prompt: str, result_queue) -> None:
@@ -17,7 +21,9 @@ def _run_provider(provider_name: str, prompt: str, result_queue) -> None:
         elif provider_name == "natlas":
             provider = NatlasProvider()
         else:
-            raise RuntimeError(f"Unsupported LLM provider: {provider_name}")
+            raise RuntimeError(
+                f"Unsupported LLM provider: {provider_name}"
+            )
 
         result = provider.generate(prompt)
 
@@ -77,28 +83,40 @@ class LLMOrchestrator:
             )
 
             process.start()
-            process.join(timeout=20)
+            process.join(timeout=PROVIDER_TIMEOUT_SECONDS)
 
             if process.is_alive():
                 print(
-                    f"LLM provider '{provider_name}' timed out after 20 seconds."
+                    f"LLM provider '{provider_name}' timed out after "
+                    f"{PROVIDER_TIMEOUT_SECONDS} seconds."
                 )
 
                 process.terminate()
                 process.join(timeout=2)
+                result_queue.close()
+                result_queue.cancel_join_thread()
 
                 last_error = TimeoutError(
-                    f"{provider_name} timed out after 20 seconds."
+                    f"{provider_name} timed out after "
+                    f"{PROVIDER_TIMEOUT_SECONDS} seconds."
                 )
                 continue
 
             try:
-                result = result_queue.get_nowait()
+                result = result_queue.get(timeout=1)
             except Empty:
+                result_queue.close()
+
                 last_error = RuntimeError(
-                    f"LLM provider '{provider_name}' exited without a result."
+                    f"LLM provider '{provider_name}' exited "
+                    "without a result."
                 )
                 continue
+            finally:
+                if not process.is_alive():
+                    process.join(timeout=1)
+
+            result_queue.close()
 
             if not result["success"]:
                 print(

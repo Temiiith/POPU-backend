@@ -1,3 +1,4 @@
+
 from google import genai
 
 from app.core.config import settings
@@ -15,9 +16,9 @@ class GeminiProvider:
         self.client = genai.Client(
             api_key=settings.gemini_api_key,
             http_options={
-                "timeout": 15000,
+                "timeout": 10000,
                 "retry_options": {
-                    "attempts": 1,
+                    "attempts": 2,
                 },
             },
         )
@@ -28,8 +29,15 @@ class GeminiProvider:
             contents=prompt,
         )
 
+        text = response.text
+
+        if not text or not text.strip():
+            raise RuntimeError(
+                "Gemini returned an empty interpretation."
+            )
+
         return LLMResult(
             provider=self.name,
             model=self.model,
-            text=response.text,
+            text=text.strip(),
         )
